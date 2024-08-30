@@ -25,16 +25,23 @@ import asyncio
 import vgamepad as vg
 from twitchio.ext import commands
 
+#TODO: set your own TWITCH_TOKEN environment variable and INITIAL_CHANNELS variable
+TWITCH_TOKEN = os.getenv('TWITCH_TOKEN')
+INITIAL_CHANNELS = ['AuskaAI']
+
 class Gamepad_Twitch_Bot(commands.Bot):
+    """
+    A Twitch bot that maps chat commands to gamepad inputs.
+    """
 
-    #Class Attributes
-    gamepad        = vg.VX360Gamepad()
-    trigger_value  = 255 #pull strength
-    hold_duration  = 0.2 #button press time
-    delay_duration = 0.1 #delay between inputs
+    #Variables
+    pull  = 255 #pull strength 1-255
+    hold  = 0.2 #seconds press time
+    delay = 0.1 #seconds delay after input
 
-    #Controller Maps
-    keys = [
+    #Class Attributes (Controller Maps)
+    GAMEPAD = vg.VX360Gamepad()
+    KEYS = [
         'w','a','s','d', #left stick
         'W','A','S','D', #right stick
         '1','2','3','4', #d-pad
@@ -42,8 +49,7 @@ class Gamepad_Twitch_Bot(commands.Bot):
         'q','e','R','F', #shoulders/triggers
         'Q','E','x','z', #thumbs/start/select
     ]
-
-    key_button_dict = {
+    BUTTON_DICT = {
     '1': vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT,
     '2': vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_UP,
     '3': vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN,
@@ -60,63 +66,54 @@ class Gamepad_Twitch_Bot(commands.Bot):
     'z': vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK,
     }
 
-    key_stick_dict = {
-    'w': ('left',   0,  1),
-    'a': ('left',  -1,  0),
-    's': ('left',   0, -1),
-    'd': ('left',   1,  0),
-    'W': ('right',  0,  1),
-    'A': ('right', -1,  0),
-    'S': ('right',  0, -1),
-    'D': ('right',  1,  0),
+    STICK_DICT = {
+    'w': ('L',  0,  1),
+    'a': ('L', -1,  0),
+    's': ('L',  0, -1),
+    'd': ('L',  1,  0),
+    'W': ('R',  0,  1),
+    'A': ('R', -1,  0),
+    'S': ('R',  0, -1),
+    'D': ('R',  1,  0),
     }
 
-    key_trigger_dict = {
-    'R': ('left',  trigger_value),
-    'F': ('right', trigger_value),
+    TRIGGER_DICT = {
+    'R': ('L', pull),
+    'F': ('R', pull),
     }
 
     #TwitchIO Functions
-    def __init__(self): 
-        super().__init__(token=os.environ['TWITCH_TOKEN'], prefix='!', initial_channels=['AuskaAI'])
+    def __init__(self):
+        try: super().__init__(token=TWITCH_TOKEN, prefix='!', initial_channels=INITIAL_CHANNELS)
+        except Exception as e: print(f"Error: {e}\n Did you forget to set TWITCH_TOKEN and INITIAL_CHANNELS?")
 
-    async def event_ready(self): 
-        print(f'Logged in as | {self.nick}'); print(f'User id is | {self.user_id}\n')
+    async def event_ready(self): print(f'Logged in as | {self.nick}'); print(f'User id is | {self.user_id}\n')
 
     async def event_message(self, message): 
-        if all(key in self.keys for key in message.content):
-            for key in message.content: await self.gamepad_input(key); await asyncio.sleep(self.delay_duration)
+        if all(key in self.KEYS for key in message.content):
+            for key in message.content: await self.gamepad_input(key); await asyncio.sleep(self.delay)
 
     #Input Functions
     async def gamepad_input(self,key):
-        if key in self.key_button_dict:  await self.button_input(*self.key_button_dict[key])
-        if key in self.key_stick_dict:   await self.stick_input(*self.key_stick_dict[key])
-        if key in self.key_trigger_dict: await self.trigger_input(*self.key_trigger_dict[key])
+        if key in self.BUTTON_DICT: await self.button_input(*self.BUTTON_DICT[key])
+        if key in self.STICK_DICT: await self.stick_input(*self.STICK_DICT[key])
+        if key in self.TRIGGER_DICT: await self.trigger_input(*self.TRIGGER_DICT[key])
 
     async def button_input(self,button):
-        self.gamepad.press_button(button);   self.gamepad.update()    
-        await asyncio.sleep(self.hold_duration)                               
-        self.gamepad.release_button(button); self.gamepad.update()   
+        self.GAMEPAD.press_button(button); self.GAMEPAD.update()    
+        await asyncio.sleep(self.hold)                               
+        self.GAMEPAD.release_button(button); self.GAMEPAD.update()   
 
     async def stick_input(self,side,x,y):
-        if side == 'right':
-            self.gamepad.right_joystick_float(x,y); self.gamepad.update() 
-            await asyncio.sleep(self.hold_duration)                               
-            self.gamepad.right_joystick_float(0,0); self.gamepad.update() 
-        elif side == 'left':
-            self.gamepad.left_joystick_float(x,y);  self.gamepad.update() 
-            await asyncio.sleep(self.hold_duration)                           
-            self.gamepad.left_joystick_float(0,0);  self.gamepad.update() 
+        if side == 'L': self.GAMEPAD.left_joystick_float(x,y) 
+        else: self.GAMEPAD.right_joystick_float(x,y)
+        self.GAMEPAD.update(); await asyncio.sleep(self.hold)                               
+        self.GAMEPAD.left_joystick_float(0,0); self.GAMEPAD.right_joystick_float(0,0); self.GAMEPAD.update() 
 
     async def trigger_input(self,side,value):
-        if side == 'right':
-            self.gamepad.right_trigger(value); self.gamepad.update() 
-            await asyncio.sleep(self.hold_duration)                          
-            self.gamepad.right_trigger(0);     self.gamepad.update() 
-
-        elif side == 'left':
-            self.gamepad.left_trigger(value);  self.gamepad.update()  
-            await asyncio.sleep(self.hold_duration)                          
-            self.gamepad.left_trigger(0);      self.gamepad.update()  
+        if side == 'L': self.GAMEPAD.left_trigger(value)
+        else: self.GAMEPAD.right_trigger(value)
+        self.GAMEPAD.update(); await asyncio.sleep(self.hold)                          
+        self.GAMEPAD.left_trigger(0); self.GAMEPAD.right_trigger(0); self.GAMEPAD.update() 
 
 Gamepad_Twitch_Bot().run()
