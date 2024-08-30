@@ -25,7 +25,7 @@ import asyncio
 import vgamepad as vg
 from twitchio.ext import commands
 
-#TODO: set your own TWITCH_TOKEN environment variable and INITIAL_CHANNELS variable
+#TODO: set your own TWITCH_TOKEN and INITIAL_CHANNELS variables
 TWITCH_TOKEN = os.getenv('TWITCH_TOKEN')
 INITIAL_CHANNELS = ['AuskaAI']
 
